@@ -10,7 +10,7 @@ public abstract record RegistrationOutcome
     }
 
     /// <summary>Indicates successful registration.</summary>
-    public sealed record Success(RegisteredUserResponse User) : RegistrationOutcome;
+    public sealed record Success(RegisteredUserResponse User, bool EventPublished) : RegistrationOutcome;
 
     /// <summary>Indicates validation failure.</summary>
     public sealed record ValidationFailure(IReadOnlyDictionary<string, string[]> Errors) : RegistrationOutcome;

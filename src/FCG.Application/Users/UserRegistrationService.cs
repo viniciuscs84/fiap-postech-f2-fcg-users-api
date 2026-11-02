@@ -3,7 +3,10 @@ using FCG.Domain.Users;
 namespace FCG.Application.Users;
 
 /// <summary>Implements the user registration use case.</summary>
-public sealed class UserRegistrationService(IUserRepository repository, IPasswordHasher passwordHasher) : IUserRegistrationService
+public sealed class UserRegistrationService(
+    IUserRepository repository,
+    IPasswordHasher passwordHasher,
+    IUserCreatedEventPublisher eventPublisher) : IUserRegistrationService
 {
     /// <inheritdoc />
     public async Task<RegistrationOutcome> RegisterAsync(RegisterUserCommand command, CancellationToken cancellationToken)
@@ -32,11 +35,15 @@ public sealed class UserRegistrationService(IUserRepository repository, IPasswor
         await repository.AddAsync(user, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
+        var eventPublished = await eventPublisher.PublishAsync(
+            new UserCreatedEvent(user.Id, user.Email), cancellationToken);
+
         return new RegistrationOutcome.Success(new RegisteredUserResponse(
             user.Id,
             user.Name,
             user.Email,
             user.Role,
-            user.CreatedAtUtc));
+            user.CreatedAtUtc),
+            eventPublished);
     }
 }

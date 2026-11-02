@@ -5,6 +5,7 @@ using FCG.Application.Users;
 using FCG.Domain.Users;
 using FCG.Infrastructure.Authentication;
 using FCG.Infrastructure.Persistence;
+using FCG.Infrastructure.Messaging;
 using FCG.Infrastructure.Security;
 using FCG.Infrastructure.Users;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -19,9 +20,11 @@ builder.Services.AddScoped<IUserRepository, EfUserRepository>();
 builder.Services.AddSingleton<IPasswordHasher, AspNetCorePasswordHasher>();
 builder.Services.AddSingleton<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IUserRegistrationService, UserRegistrationService>();
+builder.Services.AddSingleton<IUserCreatedEventPublisher, RabbitMqUserCreatedEventPublisher>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IUserAdministrationService, UserAdministrationService>();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection(RabbitMqOptions.SectionName));
 
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 if (string.IsNullOrWhiteSpace(jwt.Issuer) || string.IsNullOrWhiteSpace(jwt.Audience) ||
@@ -75,9 +78,11 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapPost("/api/auth/register", async (
-    RegisterUserCommand command, IUserRegistrationService service, CancellationToken ct) =>
+    RegisterUserCommand command, IUserRegistrationService service, ILogger<Program> logger, CancellationToken ct) =>
 {
     var result = await service.RegisterAsync(command, ct);
+    if (result is RegistrationOutcome.Success { EventPublished: false } unpublishedSuccess)
+        logger.LogWarning("User {UserId} was registered, but UserCreatedEvent was not published.", unpublishedSuccess.User.Id);
     return result switch
     {
         RegistrationOutcome.Success success => Results.Created($"/api/admin/users/{success.User.Id}", success.User),

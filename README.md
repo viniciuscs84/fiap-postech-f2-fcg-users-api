@@ -20,3 +20,7 @@ The service publishes `UserCreatedEvent` as JSON to the durable direct exchange 
 Registration persists independently from notification delivery. If RabbitMQ cannot accept the event, registration still returns `201 Created` and the service writes an operational error containing only the user identifier. This challenge-scoped behavior does not provide guaranteed delivery.
 
 Start with `dotnet run --project src/UsersAPI/UsersAPI.csproj`. `/health` reports process availability. `/swagger` shows the current HTTP endpoints.
+
+## Container preparation
+
+`Dockerfile` publishes this service from its own repository into a .NET 8 runtime image. The image runs as the built-in non-root user, listens on port 8080, and stores SQLite data under `/data`. From this repository, build with `docker build -t fcg-users-api .` when Docker is available. The sibling `Fase 2/Orchestration` repository provides the prepared Compose entry point.

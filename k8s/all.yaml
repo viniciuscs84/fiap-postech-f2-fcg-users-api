@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: users-data
+  namespace: fcg-phase2
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usersapi
+  namespace: fcg-phase2
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: usersapi
+  template:
+    metadata:
+      labels:
+        app: usersapi
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        fsGroup: 1654
+      containers:
+        - name: usersapi
+          image: viniciuscs84/fcg-users-api:sha-b484154c54c014ce470b9cdf0345fe7e52efd058
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: fcg-config
+          env:
+            - name: Jwt__SigningKey
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-secrets
+                  key: JWT_SIGNING_KEY
+            - name: RabbitMq__UserName
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-secrets
+                  key: RABBITMQ_USER
+            - name: RabbitMq__Password
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-secrets
+                  key: RABBITMQ_PASSWORD
+            - name: BootstrapAdmin__Email
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-secrets
+                  key: ADMIN_EMAIL
+            - name: BootstrapAdmin__Password
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-secrets
+                  key: ADMIN_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: users-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: usersapi
+  namespace: fcg-phase2
+spec:
+  selector:
+    app: usersapi
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

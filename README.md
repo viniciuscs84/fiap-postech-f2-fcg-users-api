@@ -26,3 +26,7 @@ Start with `dotnet run --project src/UsersAPI/UsersAPI.csproj`. `/health` report
 `Dockerfile` publishes this service from its own repository into a .NET 8 runtime image. The image runs as the built-in non-root user, listens on port 8080, and stores SQLite data under `/data`. From this repository, build with `docker build -t fcg-users-api .` when Docker is available. The sibling `Fase 2/Orchestration` repository provides the prepared Compose entry point.
 
 The Docker Hub Personal workflow in `.github/workflows/docker-hub.yml` runs tests before publishing the public `viniciuscs84/fcg-users-api` image. The public GitHub repository is `viniciuscs84/fiap-postech-f2-fcg-users-api`. Its `DOCKERHUB_USERNAME` variable and encrypted `DOCKERHUB_TOKEN` secret are configured. The image is published with `main` and full-commit `sha-...` tags. See the orchestration README for pull commands and token rotation.
+
+## Local Kubernetes manifest
+
+`k8s/all.yaml` owns this service's Deployment, ClusterIP Service, and SQLite persistent volume claim in namespace `fcg-phase2`. The shared ConfigMap and Secret, RabbitMQ, Kind cluster, and apply order are documented in the sibling `Orchestration/README.md`. The Deployment obtains JWT and broker settings from those resources and runs as non-root UID 1654.
